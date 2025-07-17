@@ -60,7 +60,6 @@ const simulateMigrationProgress = (migrationId) => {
 // Contentful App Identity validator middleware
 const validateRequest = (req, res, next) => {
   try {
-    // For POC, you can skip verification or uncomment below for actual validation
     if (process.env.CONTENTFUL_APP_SECRET) {
       const canonicalRequest = {
         path: req.path,
