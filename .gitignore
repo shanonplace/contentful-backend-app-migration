@@ -3,4 +3,10 @@ node_modules/
 .env
 npm-debug.log*
 .DS_Store
-keys/
+
+# TypeScript build output
+dist/
+*.tsbuildinfo
+
+# Legacy files
+legacy-js/

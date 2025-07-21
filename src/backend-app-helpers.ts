@@ -1,10 +1,19 @@
+import { Request, Response, NextFunction } from "express";
 import {
   getManagementToken,
   verifyRequest,
 } from "@contentful/node-apps-toolkit";
+import { ContentfulHeaders } from "./types.js";
+
+interface ExtendedRequest extends Request {
+  headers: ContentfulHeaders & Request["headers"];
+}
 
 // Helper function to create management token using App Identities
-export const getAppToken = async (spaceId, environmentId) => {
+export const getAppToken = async (
+  spaceId: string,
+  environmentId: string
+): Promise<string> => {
   if (!process.env.CONTENTFUL_APP_INSTALLATION_ID) {
     throw new Error(
       "CONTENTFUL_APP_INSTALLATION_ID environment variable is required"
@@ -52,7 +61,7 @@ export const getAppToken = async (spaceId, environmentId) => {
     }
 
     return token;
-  } catch (appIdentityError) {
+  } catch (appIdentityError: any) {
     console.error(
       `❌ App Identities authentication failed:`,
       appIdentityError.message
@@ -64,13 +73,34 @@ export const getAppToken = async (spaceId, environmentId) => {
 };
 
 // Contentful App Identity validator middleware
-export const validateRequest = (req, res, next) => {
+export const validateRequest = (
+  req: ExtendedRequest,
+  res: Response,
+  next: NextFunction
+): void => {
   try {
     if (process.env.CONTENTFUL_APP_SECRET) {
+      // Convert headers to the format expected by verifyRequest
+      const headers: { [key: string]: string } = {};
+      Object.entries(req.headers).forEach(([key, value]) => {
+        if (typeof value === "string") {
+          headers[key] = value;
+        } else if (Array.isArray(value)) {
+          headers[key] = value.join(", ");
+        }
+      });
+
       const canonicalRequest = {
         path: req.path,
-        headers: req.headers,
-        method: req.method,
+        headers,
+        method: req.method as
+          | "GET"
+          | "POST"
+          | "PUT"
+          | "DELETE"
+          | "PATCH"
+          | "HEAD"
+          | "OPTIONS",
         body: JSON.stringify(req.body),
       };
       const isValid = verifyRequest(
@@ -78,7 +108,8 @@ export const validateRequest = (req, res, next) => {
         canonicalRequest
       );
       if (!isValid) {
-        return res.status(403).json({ error: "Unauthorized" });
+        res.status(403).json({ error: "Unauthorized" });
+        return;
       }
     }
     next();

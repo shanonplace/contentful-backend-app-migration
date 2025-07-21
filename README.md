@@ -1,6 +1,6 @@
 # Migration Backend App
 
-A simple Express backend for POC migration orchestration using Contentful App Identities.
+A TypeScript Express backend for POC migration orchestration using Contentful App Identities.
 
 ## Features
 
@@ -9,18 +9,52 @@ A simple Express backend for POC migration orchestration using Contentful App Id
 - Request validation using Contentful App request verification
 - **Real CMA Operations**: Creates actual Contentful entries using App Installation Access Tokens
 - **Content Creation**: Automatically creates and publishes sample "category" entries during migration
+- **TypeScript**: Full type safety with comprehensive interfaces and type definitions
 
-## Setup
+## Development
+
+### Prerequisites
+
+- Node.js 18+ (for ES modules support)
+- npm 8+
+
+### Setup
 
 1. Install dependencies:
+
    ```sh
    npm install
    ```
+
 2. Copy `.env.sample` to `.env` and fill in your values.
-3. Start the server:
+
+3. For development with auto-reload:
+
    ```sh
+   npm run dev
+   ```
+
+4. For production build and start:
+   ```sh
+   npm run build
    npm start
    ```
+
+### TypeScript Build
+
+The project is built with TypeScript for enhanced type safety:
+
+- **Source**: All source files are in `src/` directory
+- **Build**: TypeScript compiles to `dist/` directory
+- **Types**: Comprehensive type definitions in `src/types.ts`
+- **Modules**: Full ES modules support with .js extensions for compatibility
+
+#### Available Scripts
+
+- `npm run dev` - Development mode with auto-reload using tsx
+- `npm run build` - Build TypeScript to JavaScript
+- `npm run start` - Run the built application
+- `npm run clean` - Remove build artifacts
 
 ## Endpoints
 
@@ -29,17 +63,15 @@ A simple Express backend for POC migration orchestration using Contentful App Id
 
 ## Testing with curl
 
-Start a migration:
+These will fail without a valid Contentful App request signature, but can be used for testing the backend logic:
 
 ```bash
+# Start a migration
 curl -X POST http://localhost:3000/start-migration \
   -H "Content-Type: application/json" \
   -d '{}'
-```
 
-Check migration status (replace `abc123` with actual migration ID):
-
-```bash
+# Check migration status (replace `abc123` with actual migration ID)
 curl http://localhost:3000/migration-status/abc123
 ```
 
@@ -97,11 +129,7 @@ The generated token allows the backend to:
 
 ### Sample Migration
 
-Creates three category entries with unique timestamps:
-
-- Technology (with current time)
-- Business (with current time)
-- Lifestyle (with current time)
+Creates three category entries with unique values for `slug` and `title` fields
 
 ### Prerequisites
 
@@ -133,18 +161,6 @@ To set up the private key:
 2. Copy the entire key content (including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----`)
 3. Set it as the `CONTENTFUL_PRIVATE_KEY` environment variable (see `.env.sample` for format)
 
-### Migration Output
-
-The backend logs detailed information about the authentication method and migration progress:
-
 ```
-� Attempting App Identities authentication for space 7xvt05zk, env master
-✓ Generated App Identities token: CFPAT-1234...7t5nE
-🌍 Fetching space 7xvt05zk...
-🏗️ Fetching environment master...
-📝 Creating 3 category entries...
-📄 Creating entry for: Technology (3:30:45 PM)
-🚀 Publishing entry: Technology (3:30:45 PM)
-✓ Created and published category entry: Technology (3:30:45 PM) (4xYz9ABC123def)
-🎉 Migration abc123 completed with 3 entries created
+
 ```

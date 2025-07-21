@@ -1,16 +1,23 @@
 import fetch from "node-fetch";
 import { getAppToken } from "./backend-app-helpers.js";
+import {
+  MigrationResult,
+  CreatedEntry,
+  CategoryData,
+  ContentfulEntry,
+  ContentfulEntryFields,
+} from "./types.js";
 
 const BASE_URL = "https://api.contentful.com";
 
 // Function to create a single entry
 const createEntry = async (
-  appAccessToken,
-  spaceId,
-  environmentId,
-  contentType,
-  fields
-) => {
+  appAccessToken: string,
+  spaceId: string,
+  environmentId: string,
+  contentType: string,
+  fields: ContentfulEntryFields
+): Promise<ContentfulEntry> => {
   const createUrl = `${BASE_URL}/spaces/${spaceId}/environments/${environmentId}/entries`;
   console.log(`🌐 Making request to: ${createUrl}`);
 
@@ -36,17 +43,17 @@ const createEntry = async (
     );
   }
 
-  return await createResponse.json();
+  return (await createResponse.json()) as ContentfulEntry;
 };
 
 // Function to publish an entry
 const publishEntry = async (
-  appAccessToken,
-  spaceId,
-  environmentId,
-  entryId,
-  version
-) => {
+  appAccessToken: string,
+  spaceId: string,
+  environmentId: string,
+  entryId: string,
+  version: number
+): Promise<ContentfulEntry> => {
   const publishUrl = `${BASE_URL}/spaces/${spaceId}/environments/${environmentId}/entries/${entryId}/published`;
   console.log(`🌐 Making publish request to: ${publishUrl}`);
 
@@ -71,12 +78,12 @@ const publishEntry = async (
     );
   }
 
-  return await publishResponse.json();
+  return (await publishResponse.json()) as ContentfulEntry;
 };
 
 // Function to generate category data
-const generateCategoryData = (numEntries = 5) => {
-  const categories = [];
+const generateCategoryData = (numEntries: number = 5): CategoryData[] => {
+  const categories: CategoryData[] = [];
 
   for (let i = 0; i < numEntries; i++) {
     // Generate completely random values
@@ -97,11 +104,11 @@ const generateCategoryData = (numEntries = 5) => {
 
 // Main migration function
 export const performMigrationTasks = async (
-  migrationId,
-  spaceId,
-  environmentId
-) => {
-  const createdEntries = [];
+  migrationId: string,
+  spaceId: string,
+  environmentId: string
+): Promise<MigrationResult> => {
+  const createdEntries: CreatedEntry[] = [];
 
   try {
     console.log(
@@ -114,7 +121,7 @@ export const performMigrationTasks = async (
     console.log(`🌍 Fetching space ${spaceId}...`);
 
     // Generate category data
-    const numEntriesToCreate = process.env.NUM_ENTRIES || 5;
+    const numEntriesToCreate = parseInt(process.env.NUM_ENTRIES || "5");
     const categoriesToCreate = generateCategoryData(numEntriesToCreate);
 
     console.log(`📝 Creating ${categoriesToCreate.length} category entries...`);
@@ -158,7 +165,7 @@ export const performMigrationTasks = async (
         console.log(
           `✓ Created and published category entry: ${category.title} (${publishedEntry.sys.id})`
         );
-      } catch (entryError) {
+      } catch (entryError: any) {
         console.error(
           `✗ Failed to create category entry ${category.title}:`,
           entryError.message
@@ -170,7 +177,7 @@ export const performMigrationTasks = async (
       `Migration ${migrationId} completed successfully. Created ${createdEntries.length} entries.`
     );
     return { success: true, createdEntries };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Migration ${migrationId} failed:`, error.message);
     return { success: false, error: error.message };
   }
