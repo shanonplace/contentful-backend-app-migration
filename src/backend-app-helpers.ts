@@ -48,7 +48,7 @@ export const getAppToken = async (
     console.log(
       `🔍 Token length: ${token.length}, starts with: ${token.substring(0, 20)}`
     );
-    console.log(`🔍 Full token: ${token}`);
+    // Do NOT log the full token for security reasons
 
     // Verify token format
     if (!token.startsWith("CFPAT-")) {
