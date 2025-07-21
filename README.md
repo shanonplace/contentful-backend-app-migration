@@ -79,9 +79,10 @@ curl http://localhost:3000/migration-status/abc123
 
 See `.env.sample` for required variables.
 
-- `CONTENTFUL_APP_SECRET`: A 64-character secret used to verify requests from your Contentful app. This should match the secret configured in your Contentful app settings.
+- `CONTENTFUL_APP_SIGNING_SECRET`: A 64-character secret used to verify requests from your Contentful app. This should match the secret configured in your Contentful app settings.
 - `CONTENTFUL_APP_INSTALLATION_ID`: Your app installation ID for App Identities authentication
 - `CONTENTFUL_PRIVATE_KEY`: Your private key content as a string (including BEGIN/END markers)
+- `NUM_ENTRIES`: Number of entries to create during migration (default: 5)
 - `PORT`: The port the server runs on (default: 3000)
 
 ## Request Verification
@@ -98,12 +99,12 @@ This backend uses Contentful's request verification to ensure requests come from
 2. **Backend Verification**: The backend validates each request using:
 
    - `verifyRequest()` from `@contentful/node-apps-toolkit`
-   - The `CONTENTFUL_APP_SECRET` environment variable
+   - The `CONTENTFUL_APP_SIGNING_SECRET` environment variable
    - Request path, headers, method, and body to reconstruct the canonical request
 
 3. **Security**: Only requests with valid signatures from apps with the correct secret are accepted. Invalid requests receive a 403 Unauthorized response.
 
-If `CONTENTFUL_APP_SECRET` is not set, request verification is skipped (for development only).
+If `CONTENTFUL_APP_SIGNING_SECRET` is not set, the request will be rejected with a 403 Unauthorized response.
 
 ## App Identities & CMA Integration
 
