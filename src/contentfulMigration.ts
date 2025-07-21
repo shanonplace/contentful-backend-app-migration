@@ -1,61 +1,71 @@
 import fetch from "node-fetch";
 import { getAppToken } from "./backend-app-helpers.js";
-import {
-  MigrationResult,
-  CreatedEntry,
-  CategoryData,
-  ContentfulEntry,
-  ContentfulEntryFields,
-} from "./types.js";
 
-const BASE_URL = "https://api.contentful.com";
+const BASE_URL  try {
+    console.log(`Starting migration ${migrationId} for space ${spaceId}`);
 
-// Function to create a single entry
+    // Step 1: Get an App Identities token using the node-apps-toolkit
+    const appAccessToken = await getAppToken(spaceId, environmentId);
+
+    // Step 2: Generate some sample data to create
+    const numEntriesToCreate = parseInt(process.env.NUM_ENTRIES || "5");
+    const categoriesToCreate = generateCategoryData(numEntriesToCreate);
+
+    console.log(`Creating ${categoriesToCreate.length} category entries...`);
+
+    // Step 3: Create and publish each entry using the CMA
+    for (const category of categoriesToCreate) {
+      try {
+        console.log(`Creating entry: ${category.title}`);contentful.com";
+
+// Simple function to create a category entry in Contentful
 const createEntry = async (
   appAccessToken: string,
   spaceId: string,
   environmentId: string,
-  contentType: string,
-  fields: ContentfulEntryFields
-): Promise<ContentfulEntry> => {
+  slug: string,
+  title: string
+) => {
   const createUrl = `${BASE_URL}/spaces/${spaceId}/environments/${environmentId}/entries`;
-  console.log(`🌐 Making request to: ${createUrl}`);
+  console.log(`Creating entry: ${title}`);
 
+  // Create the entry with category content type
   const createResponse = await fetch(createUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${appAccessToken}`,
-      "X-Contentful-Content-Type": contentType,
+      "X-Contentful-Content-Type": "category", // Hard-coded since this is a specific example
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify({
+      fields: {
+        slug: { "en-US": slug },
+        title: { "en-US": title },
+      },
+    }),
   });
 
-  console.log(
-    `📡 Create response status: ${createResponse.status} ${createResponse.statusText}`
-  );
+  console.log(`Create response: ${createResponse.status}`);
 
   if (!createResponse.ok) {
     const errorText = await createResponse.text();
-    console.log(`❌ Create error response: ${errorText}`);
-    throw new Error(
-      `Failed to create entry: ${createResponse.status} ${errorText}`
-    );
+    console.log(`Create failed: ${errorText}`);
+    throw new Error(`Failed to create entry: ${createResponse.status}`);
   }
 
-  return (await createResponse.json()) as ContentfulEntry;
+  return await createResponse.json();
 };
 
-// Function to publish an entry
+// Simple function to publish an entry in Contentful
 const publishEntry = async (
   appAccessToken: string,
   spaceId: string,
   environmentId: string,
   entryId: string,
   version: number
-): Promise<ContentfulEntry> => {
+) => {
   const publishUrl = `${BASE_URL}/spaces/${spaceId}/environments/${environmentId}/entries/${entryId}/published`;
-  console.log(`🌐 Making publish request to: ${publishUrl}`);
+  console.log(`Publishing entry: ${entryId}`);
 
   const publishResponse = await fetch(publishUrl, {
     method: "PUT",
@@ -66,24 +76,20 @@ const publishEntry = async (
     },
   });
 
-  console.log(
-    `📡 Publish response status: ${publishResponse.status} ${publishResponse.statusText}`
-  );
+  console.log(`Publish response: ${publishResponse.status}`);
 
   if (!publishResponse.ok) {
     const errorText = await publishResponse.text();
-    console.log(`❌ Publish error response: ${errorText}`);
-    throw new Error(
-      `Failed to publish entry: ${publishResponse.status} ${errorText}`
-    );
+    console.log(`Publish failed: ${errorText}`);
+    throw new Error(`Failed to publish entry: ${publishResponse.status}`);
   }
 
-  return (await publishResponse.json()) as ContentfulEntry;
+  return await publishResponse.json();
 };
 
-// Function to generate category data
-const generateCategoryData = (numEntries: number = 5): CategoryData[] => {
-  const categories: CategoryData[] = [];
+// Simple function to generate random category data for the example
+const generateCategoryData = (numEntries: number = 5) => {
+  const categories = [];
 
   for (let i = 0; i < numEntries; i++) {
     // Generate completely random values
@@ -102,52 +108,43 @@ const generateCategoryData = (numEntries: number = 5): CategoryData[] => {
   return categories;
 };
 
-// Main migration function
+// Main function that demonstrates how to use App Identities to create entries
 export const performMigrationTasks = async (
   migrationId: string,
   spaceId: string,
   environmentId: string
-): Promise<MigrationResult> => {
-  const createdEntries: CreatedEntry[] = [];
+) => {
+  const createdEntries = [];
 
   try {
-    console.log(
-      `Starting migration tasks for ${migrationId} in space ${spaceId}, environment ${environmentId}`
-    );
+    console.log(`🚀 Starting migration ${migrationId} for space ${spaceId}`);
 
-    // Get app token for CMA requests
+    // Step 1: Get an App Identities token using the node-apps-toolkit
     const appAccessToken = await getAppToken(spaceId, environmentId);
 
-    console.log(`🌍 Fetching space ${spaceId}...`);
-
-    // Generate category data
+    // Step 2: Generate some sample data to create
     const numEntriesToCreate = parseInt(process.env.NUM_ENTRIES || "5");
     const categoriesToCreate = generateCategoryData(numEntriesToCreate);
 
     console.log(`📝 Creating ${categoriesToCreate.length} category entries...`);
 
+    // Step 3: Create and publish each entry using the CMA
     for (const category of categoriesToCreate) {
       try {
-        console.log(`📄 Creating entry for: ${category.title}`);
+        console.log(`📄 Creating entry: ${category.title}`);
 
-        // Create entry using direct API call
+        // Create the entry using the CMA
         const createdEntry = await createEntry(
           appAccessToken,
           spaceId,
           environmentId,
-          "category",
-          {
-            slug: { "en-US": category.slug },
-            title: { "en-US": category.title },
-          }
+          category.slug,
+          category.title
         );
 
-        console.log(
-          `✓ Created entry: ${category.title} (${createdEntry.sys.id})`
-        );
+        console.log(`Created entry: ${category.title} (${createdEntry.sys.id})`);
 
-        // Publish the entry
-        console.log(`🚀 Publishing entry: ${category.title}`);
+        // Publish the entry to make it live
         const publishedEntry = await publishEntry(
           appAccessToken,
           spaceId,
@@ -156,28 +153,22 @@ export const performMigrationTasks = async (
           createdEntry.sys.version
         );
 
+        // Keep track of what we created
         createdEntries.push({
           id: publishedEntry.sys.id,
           slug: category.slug,
           title: category.title,
         });
 
-        console.log(
-          `✓ Created and published category entry: ${category.title} (${publishedEntry.sys.id})`
-        );
-      } catch (entryError: any) {
-        console.error(
-          `✗ Failed to create category entry ${category.title}:`,
-          entryError.message
-        );
-      }
+        console.log(`Published entry: ${category.title}`);
+      } catch (entryError) {
+        console.error(`Failed to create entry ${category.title}:`, entryError.message);
+        }
     }
 
-    console.log(
-      `Migration ${migrationId} completed successfully. Created ${createdEntries.length} entries.`
-    );
+    console.log(`Migration ${migrationId} completed! Created ${createdEntries.length} entries.`);
     return { success: true, createdEntries };
-  } catch (error: any) {
+  } catch (error) {
     console.error(`Migration ${migrationId} failed:`, error.message);
     return { success: false, error: error.message };
   }

@@ -25,7 +25,7 @@ export const getAppToken = async (
   }
 
   console.log(
-    `🔑 Attempting App Identities authentication for space ${spaceId}, env ${environmentId}`
+    `Attempting App Identities authentication for space ${spaceId}, env ${environmentId}`
   );
 
   // Get private key from environment variable
@@ -40,30 +40,20 @@ export const getAppToken = async (
     });
 
     console.log(
-      `✓ Generated App Identities token: ${token.substring(
+      `Generated App Identities token: ${token.substring(
         0,
         10
       )}...${token.substring(token.length - 6)}`
     );
     console.log(
-      `🔍 Token length: ${token.length}, starts with: ${token.substring(0, 20)}`
+      `Token length: ${token.length}, starts with: ${token.substring(0, 20)}`
     );
     // Do NOT log the full token for security reasons
-
-    // Verify token format
-    if (!token.startsWith("CFPAT-")) {
-      console.warn(
-        `⚠️ Warning: Token doesn't start with CFPAT- prefix. Got: ${token.substring(
-          0,
-          10
-        )}`
-      );
-    }
 
     return token;
   } catch (appIdentityError: any) {
     console.error(
-      `❌ App Identities authentication failed:`,
+      `App Identities authentication failed:`,
       appIdentityError.message
     );
     throw new Error(
@@ -79,38 +69,39 @@ export const validateRequest = (
   next: NextFunction
 ): void => {
   try {
-    if (process.env.CONTENTFUL_APP_SECRET) {
-      // Convert headers to the format expected by verifyRequest
-      const headers: { [key: string]: string } = {};
-      Object.entries(req.headers).forEach(([key, value]) => {
-        if (typeof value === "string") {
-          headers[key] = value;
-        } else if (Array.isArray(value)) {
-          headers[key] = value.join(", ");
-        }
-      });
+    if (!process.env.CONTENTFUL_APP_SIGNING_SECRET) {
+      res.status(403).json({ error: "Unauthorized: Missing signing secret" });
+      return;
+    }
+    // Extract the required Contentful headers for request verification
+    // These are the headers that the frontend signed when making the request
+    const headers = {
+      "x-contentful-signature": req.headers["x-contentful-signature"] as string,
+      "x-contentful-signed-headers": req.headers[
+        "x-contentful-signed-headers"
+      ] as string,
+      "x-contentful-timestamp": req.headers["x-contentful-timestamp"] as string,
+      "x-contentful-space-id": req.headers["x-contentful-space-id"] as string,
+      "x-contentful-environment-id": req.headers[
+        "x-contentful-environment-id"
+      ] as string,
+    };
 
-      const canonicalRequest = {
-        path: req.path,
-        headers,
-        method: req.method as
-          | "GET"
-          | "POST"
-          | "PUT"
-          | "DELETE"
-          | "PATCH"
-          | "HEAD"
-          | "OPTIONS",
-        body: JSON.stringify(req.body),
-      };
-      const isValid = verifyRequest(
-        process.env.CONTENTFUL_APP_SECRET,
-        canonicalRequest
-      );
-      if (!isValid) {
-        res.status(403).json({ error: "Unauthorized" });
-        return;
-      }
+    // Create the request object for Contentful's verifyRequest function
+    // This must match exactly what the frontend used when signing the request
+    const requestToVerify = {
+      path: req.path,
+      headers,
+      method: "POST", // Since we only handle POST requests in this example
+      body: JSON.stringify(req.body),
+    };
+    const isValid = verifyRequest(
+      process.env.CONTENTFUL_APP_SIGNING_SECRET,
+      requestToVerify
+    );
+    if (!isValid) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
     }
     next();
   } catch (error) {
