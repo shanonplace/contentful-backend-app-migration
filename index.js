@@ -1,5 +1,7 @@
 import express from "express";
-import { verifyRequest } from "@contentful/node-apps-toolkit";
+import { performMigrationTasks } from "./contentfulMigration.js";
+import { validateRequest } from "./backend-app-helpers.js";
+import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 
@@ -37,49 +39,51 @@ app.use(
 const migrations = {};
 
 // Simulate migration progression
-const simulateMigrationProgress = (migrationId) => {
+const simulateMigrationProgress = async (
+  migrationId,
+  spaceId,
+  environmentId
+) => {
   const migration = migrations[migrationId];
   if (!migration || migration.status !== "started") return;
 
-  // Simulate random completion between 10-30 seconds
-  const completionTime = Math.random() * 20000 + 10000; // 10-30 seconds
-
-  setTimeout(() => {
-    // 90% chance of success, 10% chance of failure for demo
-    const success = Math.random() > 0.1;
-    migrations[migrationId] = {
-      ...migration,
-      status: success ? "completed" : "failed",
-      completedAt: Date.now(),
-      duration: Date.now() - migration.startedAt,
-    };
-    console.log(`Migration ${migrationId} ${success ? "completed" : "failed"}`);
-  }, completionTime);
-};
-
-// Contentful App Identity validator middleware
-const validateRequest = (req, res, next) => {
-  try {
-    if (process.env.CONTENTFUL_APP_SECRET) {
-      const canonicalRequest = {
-        path: req.path,
-        headers: req.headers,
-        method: req.method,
-        body: JSON.stringify(req.body),
-      };
-      const isValid = verifyRequest(
-        process.env.CONTENTFUL_APP_SECRET,
-        canonicalRequest
+  // Simulate some initial delay
+  setTimeout(async () => {
+    try {
+      // Perform actual migration tasks calling the CMA with app identity
+      const result = await performMigrationTasks(
+        migrationId,
+        spaceId,
+        environmentId
       );
-      if (!isValid) {
-        return res.status(403).json({ error: "Unauthorized" });
+
+      migrations[migrationId] = {
+        ...migration,
+        status: result.success ? "completed" : "failed",
+        completedAt: Date.now(),
+        duration: Date.now() - migration.startedAt,
+        createdEntries: result.createdEntries || [],
+        error: result.error,
+      };
+
+      if (result.success) {
+        console.log(
+          `🎉 Migration ${migrationId} completed with ${result.createdEntries.length} entries created`
+        );
+      } else {
+        console.log(`❌ Migration ${migrationId} failed: ${result.error}`);
       }
+    } catch (error) {
+      console.error(`Migration ${migrationId} failed with error:`, error);
+      migrations[migrationId] = {
+        ...migration,
+        status: "failed",
+        completedAt: Date.now(),
+        duration: Date.now() - migration.startedAt,
+        error: error.message,
+      };
     }
-    next();
-  } catch (error) {
-    console.error("Request verification error:", error);
-    res.status(403).json({ error: "Unauthorized" });
-  }
+  }, 2000); // 2 second delay to simulate some processing time
 };
 
 // POST /start-migration
@@ -91,19 +95,37 @@ app.post("/start-migration", validateRequest, (req, res) => {
   // - install apps
   // - whatever else you need to do in your migration
 
-  // For POC, just simulate a migration start
+  // Extract space and environment from Contentful headers
+  const spaceId = req.headers["x-contentful-space-id"];
+  const environmentId = req.headers["x-contentful-environment-id"] || "master";
+
+  if (!spaceId) {
+    return res
+      .status(400)
+      .json({ error: "Space ID is required in X-Contentful-Space-Id header" });
+  }
+
   // Generate a fake migration ID
   const migrationId = Math.random().toString(36).substring(2, 10);
-  migrations[migrationId] = { status: "started", startedAt: Date.now() };
+  migrations[migrationId] = {
+    status: "started",
+    startedAt: Date.now(),
+    spaceId,
+    environmentId,
+  };
 
-  // Start the simulation
-  simulateMigrationProgress(migrationId);
+  // Start the migration with actual CMA operations
+  simulateMigrationProgress(migrationId, spaceId, environmentId);
 
-  console.log(`Migration ${migrationId} started`);
+  console.log(
+    `🚀 Migration ${migrationId} started for space ${spaceId}, environment ${environmentId}`
+  );
   res.json({
     migrationId,
     status: "started",
     startedAt: migrations[migrationId].startedAt,
+    spaceId,
+    environmentId,
   });
 });
 
@@ -114,13 +136,17 @@ app.get("/migration-status/:id", validateRequest, (req, res) => {
     return res.status(404).json({ error: "Migration not found" });
   }
 
-  // Return full migration details including timestamps
+  // Return full migration details including timestamps and created entries
   res.json({
     migrationId: req.params.id,
     status: migration.status,
     startedAt: migration.startedAt,
     completedAt: migration.completedAt,
     duration: migration.duration,
+    spaceId: migration.spaceId,
+    environmentId: migration.environmentId,
+    createdEntries: migration.createdEntries || [],
+    error: migration.error,
   });
 });
 

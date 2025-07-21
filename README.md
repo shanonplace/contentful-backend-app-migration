@@ -7,6 +7,8 @@ A simple Express backend for POC migration orchestration using Contentful App Id
 - Start a migration (POST /start-migration)
 - Poll migration status (GET /migration-status/:id)
 - Request validation using Contentful App request verification
+- **Real CMA Operations**: Creates actual Contentful entries using App Installation Access Tokens
+- **Content Creation**: Automatically creates and publishes sample "category" entries during migration
 
 ## Setup
 
@@ -46,6 +48,8 @@ curl http://localhost:3000/migration-status/abc123
 See `.env.sample` for required variables.
 
 - `CONTENTFUL_APP_SECRET`: A 64-character secret used to verify requests from your Contentful app. This should match the secret configured in your Contentful app settings.
+- `CONTENTFUL_APP_INSTALLATION_ID`: Your app installation ID for App Identities authentication
+- `CONTENTFUL_PRIVATE_KEY`: Your private key content as a string (including BEGIN/END markers)
 - `PORT`: The port the server runs on (default: 3000)
 
 ## Request Verification
@@ -68,3 +72,79 @@ This backend uses Contentful's request verification to ensure requests come from
 3. **Security**: Only requests with valid signatures from apps with the correct secret are accepted. Invalid requests receive a 403 Unauthorized response.
 
 If `CONTENTFUL_APP_SECRET` is not set, request verification is skipped (for development only).
+
+## App Identities & CMA Integration
+
+This backend uses **Contentful App Identities** for secure content operations:
+
+### Authentication
+
+**App Identities Authentication**
+
+1. **Request Verification**: Verifies that requests come from authorized Contentful apps using signed request validation
+2. **App Identities Authentication**: Uses App Identities to generate management tokens:
+   - Reads the private key from `CONTENTFUL_PRIVATE_KEY` environment variable
+   - Uses `getManagementToken()` from `@contentful/node-apps-toolkit`
+   - Generates scoped tokens for the specific app installation, space, and environment
+
+### CMA Operations
+
+The generated token allows the backend to:
+
+- Make direct HTTP requests to the Contentful Management API
+- Perform operations as the installed app identity
+- Create and publish entries in the target space/environment using REST API calls
+
+### Sample Migration
+
+Creates three category entries with unique timestamps:
+
+- Technology (with current time)
+- Business (with current time)
+- Lifestyle (with current time)
+
+### Prerequisites
+
+- A `category` content type exists in your space with `slug` and `title` fields (both Short Text)
+- The app is installed in the target space
+- The private key content is set in `CONTENTFUL_PRIVATE_KEY` environment variable
+- `CONTENTFUL_APP_INSTALLATION_ID` is configured in your environment variables
+
+### Troubleshooting App Identities
+
+If you see "401 Unauthorized" errors with App Identities:
+
+1. **Verify App Installation ID**: Ensure `CONTENTFUL_APP_INSTALLATION_ID` is correct
+2. **Check Private Key**: Ensure `CONTENTFUL_PRIVATE_KEY` contains the complete private key (including BEGIN/END markers)
+3. **App Permissions**: Verify the app has proper permissions in the space
+
+### Private Key Setup
+
+The app uses the private key stored in the `CONTENTFUL_PRIVATE_KEY` environment variable. This approach is more secure than file storage because:
+
+- **No file system exposure**: Keys aren't stored on disk
+- **Environment isolation**: Only accessible to the process
+- **DevOps friendly**: Easy to inject via CI/CD and cloud platforms
+- **No file permission issues**: Eliminates file access security risks
+
+To set up the private key:
+
+1. Download the private key from your Contentful App configuration
+2. Copy the entire key content (including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----`)
+3. Set it as the `CONTENTFUL_PRIVATE_KEY` environment variable (see `.env.sample` for format)
+
+### Migration Output
+
+The backend logs detailed information about the authentication method and migration progress:
+
+```
+� Attempting App Identities authentication for space 7xvt05zk, env master
+✓ Generated App Identities token: CFPAT-1234...7t5nE
+🌍 Fetching space 7xvt05zk...
+🏗️ Fetching environment master...
+📝 Creating 3 category entries...
+📄 Creating entry for: Technology (3:30:45 PM)
+🚀 Publishing entry: Technology (3:30:45 PM)
+✓ Created and published category entry: Technology (3:30:45 PM) (4xYz9ABC123def)
+🎉 Migration abc123 completed with 3 entries created
+```
